@@ -1,6 +1,8 @@
 #pragma once
 
 #include "pch.h"
+#include <vector>
+#include "Message.h"
 
 #include "Player.h"
 
@@ -21,6 +23,8 @@ public:
 	static float EmitStateInterval;
 
 	static int PunchDamageId;
+
+	static std::vector<Message*> MessageQueue;
 
 	static void Init();
 

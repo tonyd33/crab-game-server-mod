@@ -17,6 +17,7 @@
 #include "systems/Whitelist.h"
 #include "systems/AutoMessages.h"
 #include "templates/templates.h"
+#include "Message.h"
 
 std::map<long long, Player*> Server::Players;
 
@@ -31,6 +32,7 @@ bool Server::ShowJoinLeaveMessages = false;
 
 int Server::PunchDamageId = -1;
 
+std::vector<Message*> Server::MessageQueue = {};
 
 
 void on_connection_open(void) {
@@ -64,8 +66,14 @@ void OnRemoteCommand(sio::event& event)
 	auto remote_message = event.get_message().get()->get_string();
 
 	std::cout << "[Server] Forwarding remote command " << remote_message << std::endl;
-	auto message = new Message(Server::GetLobbyOwner(), remote_message);
-	Chat::ProcessCommandMessage(message);
+	// DO NOT EXECUTE THE COMMAND HERE!
+	// This listener executes on a different thread. Almost everything dealing with IL2CPP
+	// calls completely break when executing on this thread, presumably because the IL2CPP
+	// code expects to be run on a different thread.
+	// Therefore, we receive the message by queueing it and executing it on the correct
+	// thread later, in the Server::Update function.
+	Message* message = new Message(Server::GetLobbyOwner(), remote_message);
+	Server::MessageQueue.push_back(message);
 }
 
 void OnPollState(sio::event& event) 
@@ -190,6 +198,13 @@ void Server::Update(float dt)
 				RespawnPlayer(player);
 			}
 		}
+	}
+
+	while (!Server::MessageQueue.empty())
+	{
+		auto message = std::move(Server::MessageQueue.front());
+		Server::MessageQueue.erase(Server::MessageQueue.begin());
+		Chat::AddMessageAndProcess(message);
 	}
 
 	Chat::Update(dt);
