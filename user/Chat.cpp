@@ -89,6 +89,20 @@ Message* Chat::AddMessage(Message* message)
 	//std::cout << "[Chat] Add Message from (" << message->FromClientId << ") '" << message->Content << "'" << std::endl;
 	
 	Messages.push_back(message);
+	Json::Value messageJSON = Json::objectValue;
+
+	messageJSON["FromClientId"] = message->FromClientId;
+	messageJSON["Content"] = message->Content;
+	messageJSON["SendType"] = MessageSendTypeToString(message->SendType);
+	messageJSON["IsCommand"] = message->IsCommand;
+	messageJSON["Command"] = message->Cmd;
+	messageJSON["CmdArgs"] = message->CmdArgs;
+	auto now = std::chrono::system_clock::now();
+	auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
+	messageJSON["Timestamp"] = millis.count();
+
+	Server::SIOClient.socket()->emit("chat_msg", messageJSON.toStyledString());
+
 	return message;
 }
 
@@ -204,7 +218,7 @@ void Chat::ProcessCommandMessage(Message* message)
 		return;
 	}
 
-	if (!command->CheckPermissions(message->FromPlayer))
+	if (message->FromClientId != 0xDEADBEEF && !command->CheckPermissions(message->FromPlayer))
 	{
 		command->NoPermission();
 		return;

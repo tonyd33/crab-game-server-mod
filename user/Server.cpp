@@ -24,21 +24,124 @@ int Server::MapId = -1;
 int Server::MapModeId = -1;
 long long Server::LobbyId = 0;
 
+sio::client Server::SIOClient;
 bool Server::AutoKillHostOnGameStart = false;
 bool Server::AutoReadyHostOnLobby = false;
 bool Server::ShowJoinLeaveMessages = false;
 
 int Server::PunchDamageId = -1;
 
+
+
+void on_connection_open(void) {
+	std::cout << "Connection open" << std::endl;
+}
+
+void on_connection_close(int const& reason) 
+{
+	std::cout << "Connection close" << std::endl;
+}
+
+void on_socket_connection_open(std::string const &nsp) 
+{
+	std::cout << "Socket Connection open on " << nsp << std::endl;
+}
+
+void on_socket_connection_close(std::string const &nsp) 
+{
+	std::cout << "Socket Connection close" << nsp << std::endl;
+}
+
+void OnRemoteCommand(sio::event& event) 
+{
+	auto flag = event.get_message().get()->get_flag();
+	if (flag != sio::message::flag_string)
+	{
+		std::cout << "[SERVER] Expected a string command" << std::endl;
+		return;
+	}
+
+	auto remote_message = event.get_message().get()->get_string();
+
+	std::cout << "[Server] Forwarding remote command " << remote_message << std::endl;
+	auto message = new Message(Server::GetLobbyOwner(), remote_message);
+	Chat::ProcessCommandMessage(message);
+}
+
+void OnPollState(sio::event& event) 
+{
+	Server::EmitState();
+}
+
 void Server::Init()
 {
 	std::cout << "[Server] Init" << std::endl;
 
+	// Server::SIOClient.set_logs_verbose();
+	Server::SIOClient.connect("http://localhost:3000");
+	Server::SIOClient.socket()->emit("ping");
+	Server::SIOClient.socket()->on("remote_command", &OnRemoteCommand);
+	Server::SIOClient.socket()->on("poll_state", &OnPollState);
 	Config::Load();
 
 	Chat::Init();
 
 	std::cout << "[Info] You can type '!config reload' to reload config.ini" << std::endl;
+}
+
+
+float Server::EmitStateInterval = 5.0f;
+float Server::EmitStateTimeElapsed = 0;
+
+void Server::EmitState() 
+{
+	// Too noisy
+	// std::cout << "[Server] Emitting state" << std::endl;
+
+	Json::Value state = Json::objectValue;
+
+	Json::Value playersValue = Json::objectValue;
+	for (auto pair : Server::Players)
+	{
+		auto key = pair.first;
+		auto player = pair.second;
+
+		Json::Value playerValue;
+		playerValue["Username"] = player->Username;
+		playerValue["PermissionGroupId"] = player->PermissionGroupId;
+		// such a large number doesn't serialize to JS numbers well
+		playerValue["ClientId"] = std::to_string(player->ClientId);
+		playerValue["IsOnline"] = player->IsOnline;
+		playerValue["IsAlive"] = player->IsAlive;
+		playerValue["SpawnedThisRound"] = player->SpawnedThisRound;
+		playerValue["DiedThisRound"] = player->DiedThisRound;
+		playerValue["FirstEverSpawned"] = player->FirstEverSpawn;
+		playerValue["Godmode"] = player->Godmode;
+		playerValue["JumpPunchEnabled"] = player->JumpPunchEnabled;
+		playerValue["SuperPunchEnabled"] = player->SuperPunchEnabled;
+		playerValue["ForceFieldEnabled"] = player->ForceFieldEnabled;
+		playerValue["MultiSnowballEnabled"] = player->MultiSnowballEnabled;
+		playerValue["MuteTime"] = player->MuteTime;
+		playerValue["RespawnTime"] = player->RespawnTime;
+
+
+		playersValue[std::to_string(player->ClientId)] = playerValue;
+	}
+
+	state["Players"] = playersValue;
+
+	Server::SIOClient.socket()->emit("state_update", state.toStyledString());
+}
+
+void Server::ProcessEmitState(float dt)
+{
+	EmitStateTimeElapsed += dt;
+	if (EmitStateTimeElapsed >= EmitStateInterval)
+	{
+		std::cout << "[Server] Emitting state" << std::endl;
+		EmitStateTimeElapsed = 0;
+		EmitState();
+	}
 }
 
 void Server::Update(float dt)
@@ -99,6 +202,8 @@ void Server::Update(float dt)
 		auto bannedPlayers = (*LobbyManager__TypeInfo)->static_fields->bannedPlayers;
 		List_1_System_UInt64__Clear(bannedPlayers, NULL);
 	}
+
+	Server::ProcessEmitState(dt);
 }
 
 void Server::UpdatePlayersPosition()
@@ -264,6 +369,8 @@ void Server::OnAddPlayerToLobby(long long clientId)
 	OnPlayerJoin(player);
 
 	if(firstJoin) OnPlayerFirstJoin(player);
+
+	Server::EmitState();
 }
 
 void Server::OnRemovePlayerFromLobby(long long clientId)
@@ -272,6 +379,8 @@ void Server::OnRemovePlayerFromLobby(long long clientId)
 	player->IsOnline = false;
 
 	OnPlayerLeave(player);
+
+	Server::EmitState();
 }
 
 void Server::OnPlayerFirstJoin(Player* player)
@@ -285,6 +394,8 @@ void Server::OnPlayerFirstJoin(Player* player)
 	//lobby owner hasnt been updated yet :/
 
 	Config::SavePlayers();
+
+	Server::EmitState();
 }
 
 void Server::OnPlayerJoin(Player* player)
@@ -302,6 +413,8 @@ void Server::OnPlayerJoin(Player* player)
 	player->IsAlive = false;
 
 	ModeDeathMatch::OnPlayerJoin(player);
+
+	Server::EmitState();
 }
 
 void Server::OnPlayerLeave(Player* player)
@@ -316,6 +429,8 @@ void Server::OnPlayerLeave(Player* player)
 	player->IsOnline = false;
 	player->SpawnedThisRound = false;
 	player->DiedThisRound = false;
+
+	Server::EmitState();
 }
 
 /*
@@ -335,6 +450,8 @@ void Server::OnGameSpawnPlayer(Player* player, Vector3 position)
 	player->SpawnedThisRound = true;
 	player->SpawnCallbackRequest = true;
 	//Server::OnPlayerSpawn(player, player->Positon);
+
+	Server::EmitState();
 }
 
 bool Server::OnPlayerTryToSpawnSpectator(Player* player)
@@ -377,6 +494,8 @@ bool Server::OnPlayerTryToSpawnSpectator(Player* player)
 
 	//player->PlayerManager = NULL; //why did I add this?
 
+	Server::EmitState();
+
 	return true;
 }
 
@@ -386,6 +505,7 @@ bool Server::OnPlayerTryToSpawnSpectator(Player* player)
 */
 void Server::OnPlayerSpawn(Player* player, Vector3 position)
 {
+	Server::SIOClient.socket()->emit("player_spawn", player->Username);
 	player->IsAlive = true;
 
 	std::cout << "[Server] OnPlayerSpawn " << player->GetDisplayNameExtra() << ", at " << position << std::endl;
@@ -423,6 +543,7 @@ void Server::OnPlayerSpawn(Player* player, Vector3 position)
 	}
 
 	ModeDeathMatch::OnPlayerSpawn(player, position);
+	Server::EmitState();
 }
 
 /*
@@ -431,6 +552,7 @@ return false - player stays alive
 */
 bool Server::OnPlayerDied(Player* deadPlayer, Player* killerPlayer, Vector3 damageDir)
 {
+	Server::SIOClient.socket()->emit("player_died", deadPlayer->Username);
 	if (deadPlayer->Godmode)
 		return false;
 
@@ -454,6 +576,7 @@ bool Server::OnPlayerDied(Player* deadPlayer, Player* killerPlayer, Vector3 dama
 
 	ModeDeathMatch::OnPlayerDied(deadPlayer, killerPlayer, damageDir);
 
+	Server::EmitState();
 	return true;
 }
 
@@ -678,6 +801,7 @@ void Server::OnMapStart()
 	GameServer_ForceRemoveAllWeapons(NULL);
 
 	AutoStart::OnMapStart();
+	Server::EmitState();
 }
 
 void Server::OnLobbyStart(long long lobbyId)
@@ -685,6 +809,7 @@ void Server::OnLobbyStart(long long lobbyId)
 	std::cout << "[Server] OnLobbyStart " << lobbyId << std::endl;
 
 	LobbyId = lobbyId;
+	Server::EmitState();
 }
 
 void Server::RestartGame()
@@ -693,6 +818,7 @@ void Server::RestartGame()
 
 	OnMapLoad(MapId, MapModeId);
 	//OnMapStart(); ///gets called automatically by game
+	Server::EmitState();
 }
 
 void Server::OnPunchPlayer(uint64_t playerId, uint64_t punchedPlayerId, Vector3 dir, MethodInfo* method)
@@ -702,6 +828,7 @@ void Server::OnPunchPlayer(uint64_t playerId, uint64_t punchedPlayerId, Vector3 
 	//HF_ServerSend_PunchPlayer->original(playerId, punchedPlayerId, dir, method);
 
 	if (Server::HasPlayer(playerId)) Fly::OnPunch(Server::GetPlayer(playerId));
+	Server::EmitState();
 }
 
 bool Server::IsAtLobby()
@@ -721,6 +848,7 @@ Player* Server::GetLobbyOwner()
 //only works inside template too
 bool Server::OnTryUseUseItemAll(Player* player, int itemId, Vector3 dir, int objectId, MethodInfo* method)
 {
+	Server::EmitState();
 	if (!player) return true;
 
 	return true;

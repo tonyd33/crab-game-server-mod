@@ -10,6 +10,9 @@ enum class MessageSendType {
 	FORCE_PRIVATE
 };
 
+
+std::string MessageSendTypeToString(MessageSendType st);
+
 class Message {
 public:
 	long long FromClientId;

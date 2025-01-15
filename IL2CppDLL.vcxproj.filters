@@ -270,6 +270,7 @@
     </None>
     <None Include="README.md" />
     <None Include="version.json" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="notes.txt" />

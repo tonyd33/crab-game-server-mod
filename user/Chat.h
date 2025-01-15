@@ -30,9 +30,9 @@ public:
 
 	static void ProcessAllMessages();
 private:
-	static void ProcessCommandMessage(Message* message);
 	static bool ProcessWeaponCommand(Message* message);
 public:
+	static void ProcessCommandMessage(Message* message);
 	static Message* SendServerMessage(std::string text);
 	static void SendServerMessage(std::vector<std::string> lines);
 

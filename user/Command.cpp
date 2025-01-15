@@ -51,7 +51,7 @@ void Command::Execute(Message* message)
 	CurrentMessage = message;
 	CurrentArgs = CommandArg::GetArgs(message->CmdArgs);
 
-	//std::cout << "[Command : " << m_Cmd << "] Execute" << std::endl;
+	std::cout << "[Command : " << message->Cmd << "] Execute" << std::endl;
 }
 
 Player* Command::GetPlayer()

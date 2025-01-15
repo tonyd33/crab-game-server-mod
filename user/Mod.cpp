@@ -1,4 +1,5 @@
 #include "pch-il2cpp.h"
+#include "pch.h"
 #include "Mod.h"
 
 #include "Injector.h"
@@ -25,6 +26,7 @@ void Mod::Init()
 		Inject_Templates_ServerSend();
 		Inject_Templates_GameManager();
 	}
+
 
 	Server::Init();
 

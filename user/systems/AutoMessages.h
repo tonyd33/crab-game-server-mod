@@ -6,6 +6,7 @@ class AutoMessages {
 public:
 	static std::vector<std::string> Messages;
 
+	static bool CreatedFirstConfig;
 	static bool Enabled;
 	static float SendInterval;
 	static float SendTimeElapsed;

@@ -11,9 +11,14 @@ public:
 	static int MapModeId;
 	static long long LobbyId;
 
+	static sio::client SIOClient;
+
 	static bool AutoKillHostOnGameStart;
 	static bool AutoReadyHostOnLobby;
 	static bool ShowJoinLeaveMessages;
+
+	static float EmitStateTimeElapsed;
+	static float EmitStateInterval;
 
 	static int PunchDamageId;
 
@@ -23,6 +28,9 @@ public:
 	static void Update(float dt); 
 
 	static void UpdatePlayersPosition();
+
+	static void EmitState();
+	static void ProcessEmitState(float dt);
 
 	static bool HasPlayer(long long clientId);
 	static Player* GetPlayer(long long clientId);

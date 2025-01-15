@@ -7,6 +7,7 @@
 
 std::vector<std::string> AutoMessages::Messages;
 
+bool AutoMessages::CreatedFirstConfig = false;
 bool AutoMessages::Enabled = true;
 float AutoMessages::SendInterval = 40;
 float AutoMessages::SendTimeElapsed = 0;
@@ -109,7 +110,9 @@ void AutoMessages::ReloadConfig()
 
 void AutoMessages::CreateFirstConfig()
 {
+	if (AutoMessages::CreatedFirstConfig) return;
 	std::cout << "[AutoMessages] CreateFirstConfig" << std::endl;
 
 	AddMessage(" Type !help for a list of commands");
+	AutoMessages::CreatedFirstConfig = true;
 }

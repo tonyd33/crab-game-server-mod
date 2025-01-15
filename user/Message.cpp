@@ -1,6 +1,23 @@
 #include "pch-il2cpp.h"
 #include "Message.h"
 
+std::string MessageSendTypeToString(MessageSendType st)
+{
+	switch (st)
+	{
+	case MessageSendType::NORMAL:
+		return "NORMAL";
+	case MessageSendType::FORCE_SEND:
+		return "FORCE_SEND";
+	case MessageSendType::FORCE_HIDE:
+		return "FORCE_HIDE";
+	case MessageSendType::FORCE_PRIVATE:
+		return "FORCE_PRIVATE";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 Message::Message(long long fromClient, std::string content)
 {
 	FromClientId = fromClient;

@@ -154,6 +154,7 @@ void Config::Reload()
 	AutoMessages::ReloadConfig();
 }
 
+
 void Config::ProcessAutoSave(float dt)
 {
 	AutoSaveTimeElapsed += dt;
@@ -163,7 +164,9 @@ void Config::ProcessAutoSave(float dt)
 		
 		SavePlayers();
 	}
+
 }
+
 
 void Config::SaveConfigFile()
 {
